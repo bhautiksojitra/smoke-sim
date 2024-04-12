@@ -11,20 +11,30 @@ void main()
 	//vec2 velocity = texture(ourTexture, tex).xy;
 
 	//vec2 velocity = texture(velocityTexture, tex).xy;
-	float density = texture(densityTexture, tex).x;
+	vec3 density = texture(densityTexture, tex).xyz;
 
 	//vec2 offset = velocity * deltaTime;
 	//vec2 newUV = tex.xy + offset;
 
 	//float aD = texture(densityTexture, newUV).r;
 
-	
-	color = vec4(density, density, density, 1.0);
-	
+	//if(density < 0.01)
+	//{
+		
+	//}
+	//else
+	//{
+	//color = vec4(density + 0.3, density + 0.3 ,  0.3 + density, 1.0);
+
+	//}
+
+	color = vec4(density, 1.0); 
+		
 	//if(density < 0.000001)
 	//{
 	//color = vec4(1,1,1,1);
 	//}
+	 
 
 	//vec2 offset = vec2(cos(deltaTime), sin(deltaTime));
 	//vec2 newTexCoord = tex + offset * 0.1;
