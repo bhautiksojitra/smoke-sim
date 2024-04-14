@@ -37,6 +37,14 @@ const float EdgeCoord = QuadSize / 2.0;
 const int DIMENSION = 100;
 const int NUMVALUES = DIMENSION * DIMENSION;
 
+
+float constant_random_color1 = float(rand() % 10) / 100.0;
+float constant_random_color2 =  float(rand() % 10) / 100.0;
+float constant_random_color3 = float(rand() % 10) / 100.0;
+
+bool doSimulate = false;
+
+
 float densityTexValues[NUMVALUES];
 float density0[NUMVALUES];
 glm::vec2 velocity0[NUMVALUES];
@@ -418,49 +426,56 @@ display(void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     int center = DIMENSION / 2;
-    
-    for (int i = 0; i < 1; i++)
+
+    if (doSimulate)
     {
-        for (int j = 0; j < 1; j++)
+        for (int i = 0; i < 1; i++)
         {
-            float x = dis(gen);
-            float temp = densityTexValues[IX(origin_x + i, origin_y + j)] + x;
+            for (int j = 0; j < 1; j++)
+            {
+                float x = dis(gen);
+                float temp = densityTexValues[IX(origin_x + i, origin_y + j)] + x;
 
-            float real_value = glm::clamp(temp, 0.0f, 1.7f);
-            densityTexValues[IX(origin_x + i, origin_y + j)] += real_value;
+                float real_value = glm::clamp(temp, 0.0f, 1.7f);
+                densityTexValues[IX(origin_x + i, origin_y + j)] += real_value;
+            }
         }
-    }
-    for (int i = 0; i < 1; i++)
-    {
-        velocity[IX(origin_x, origin_y)] += glm::vec2(rand() % 4 + 2, rand() % 3 + 1);
-    }
+        for (int i = 0; i < 1; i++)
+        {
+            velocity[IX(origin_x, origin_y)] += glm::vec2(rand() % 4 + 2, rand() % 3 + 1);
+        }
 
 
+       
+    }
+    
     diffuse_velocity(viscocity, dt);
 
-    
+
 
     project(velocity0, velocity);
 
-   
-    advect_velocity(true, velocity, velocity0,  dt);
+
+    advect_velocity(true, velocity, velocity0, dt);
     advect_velocity(false, velocity, velocity0, dt);
 
-   project(velocity, velocity0);
+    project(velocity, velocity0);
 
-    
-    
+
+
     diffuse(0, density0, densityTexValues, diffusion, dt);
-       
+
     advect(densityTexValues, density0, velocity, dt);
+
 
     for (int i = 0; i < NUMVALUES; i++)
     {
         float color_val = densityTexValues[i];
-        color_arr[i] = glm::vec3(color_val, 0.0, color_val);
+        color_arr[i] = glm::vec3(color_val - constant_random_color1, color_val - constant_random_color2, color_val - constant_random_color3);
     }
 
     fill_object(object_center_x, object_center_y, object_size);
+    
     
     
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, DIMENSION, DIMENSION, 0, GL_RGB, GL_FLOAT, color_arr);
@@ -474,6 +489,29 @@ display(void)
 
 //----------------------------------------------------------------------------
 
+void update_obstacle()
+{
+    object_size = (rand() % 20) + 8;
+    object_center_x = (rand() % (DIMENSION - (object_size / 2))) + ((object_size / 2));
+    object_center_y = (rand() % (DIMENSION - (object_size / 2))) + ((object_size / 2));
+}
+
+void reset_sim()
+{
+    for (int i = 0; i < DIMENSION - 1; i++)
+    {
+        for (int j = 0; j < DIMENSION - 1; j++)
+        {
+            velocity[IX(i, j)] = glm::vec2(0, 0);
+            velocity0[IX(i, j)] = glm::vec2(0, 0);
+            density0[IX(i, j)] = 0.0f;
+            densityTexValues[IX(i, j)] = 0.0f;
+
+        }
+    }
+    doSimulate = false;
+}
+
 void
 keyboard(unsigned char key, int x, int y)
 {
@@ -481,6 +519,11 @@ keyboard(unsigned char key, int x, int y)
     case 033: // Escape Key
         exit(EXIT_SUCCESS);
         break;
+    case 'n': case 'N':
+        update_obstacle();
+        break;
+    case 'r': case 'R':
+        reset_sim();
     }
 }
 
@@ -494,7 +537,7 @@ mouse(int button, int state, int x, int y)
 
         switch (button) {
         case GLUT_LEFT_BUTTON: 
-            
+            doSimulate = true;
             std::cout << origin_x << " " << origin_y << std::endl;
             break;
         case GLUT_MIDDLE_BUTTON:   break;
