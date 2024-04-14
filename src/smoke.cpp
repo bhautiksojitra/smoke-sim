@@ -217,7 +217,7 @@ void set_boundaries_for_object(glm::vec2* velocity)
     velocity[IX(rightX, upY)] = 0.5f * (velocity[IX(rightX - 1, upY)] + velocity[IX(rightX, upY - 1)]);
 }
 
-void lin_solve(int b, float* x, float* x0, float a, float c) {
+void guassian_seidel_density_solver(int b, float* x, float* x0, float a, float c) {
     float  cRecip = 1.0 / c;
     for (int t = 0; t < 16; t++) {
         for (int i = 1; i < DIMENSION - 1; i++) {
@@ -237,7 +237,7 @@ void lin_solve(int b, float* x, float* x0, float a, float c) {
 }
 
 
-void lin_solve_for_velocity(float a, float c) {
+void guassian_seidel_velocity_solver(float a, float c) {
     float  cRecip = 1.0 / c;
     for (int t = 0; t < 16; t++) {
         for (int i = 1; i < DIMENSION - 1; i++) {
@@ -271,15 +271,15 @@ void lin_solve_for_velocity(float a, float c) {
 
 void diffuse_velocity(float diff, float dt) {
     float a = dt * diff * 100;
-    lin_solve_for_velocity(a, 1 + 6 * a);
+    guassian_seidel_velocity_solver(a, 1 + 6 * a);
 }
 
 void diffuse(int b, float* x, float* x0, float diff, float dt) {
     float a = dt * diff * 100;
-    lin_solve(b, x, x0, a, 1 + 6 * a);
+    guassian_seidel_density_solver(b, x, x0, a, 1 + 6 * a);
 }
 
-void project(glm::vec2 * velocity_arr1, glm::vec2* velocity_arr2) {
+void project_velocity(glm::vec2 * velocity_arr1, glm::vec2* velocity_arr2) {
     for (int i = 1; i < DIMENSION - 1; i++) {
         for (int j = 1; j < DIMENSION - 1; j++) {
             velocity_arr2[IX(i, j)].x =
@@ -442,7 +442,7 @@ display(void)
         }
         for (int i = 0; i < 1; i++)
         {
-            velocity[IX(origin_x, origin_y)] += glm::vec2(rand() % 4 + 2, rand() % 3 + 1);
+            velocity[IX(origin_x, origin_y)] += glm::vec2(rand() % 3 , rand() % 3);
         }
 
 
@@ -453,13 +453,13 @@ display(void)
 
 
 
-    project(velocity0, velocity);
+    project_velocity(velocity0, velocity);
 
 
     advect_velocity(true, velocity, velocity0, dt);
     advect_velocity(false, velocity, velocity0, dt);
 
-    project(velocity, velocity0);
+    project_velocity(velocity, velocity0);
 
 
 
@@ -512,6 +512,8 @@ void reset_sim()
     doSimulate = false;
 }
 
+
+
 void
 keyboard(unsigned char key, int x, int y)
 {
@@ -524,6 +526,10 @@ keyboard(unsigned char key, int x, int y)
         break;
     case 'r': case 'R':
         reset_sim();
+        break;
+    case 's': case 'S':
+        doSimulate = false;
+        break;
     }
 }
 
