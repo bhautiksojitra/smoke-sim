@@ -4,14 +4,18 @@ Real-time simulation using Navier-Stokes equation implemented in OpenGL (C++)
 
 ### Visuals
 
-* Output GIF
 ![GIF](./assets/output.gif)
 
-* Images
-![Image 1](./assets/img1.png)
-![Image 2](./assets/img2.png)
-![Image 3](./assets/img3.png)
-![Image 4](./assets/img4.png)
+<p align="center">
+  <img src="./assets/img1.png" alt="Image 1" width="45%">
+  <img src="./assets/img2.png" alt="Image 2" width="45%">
+</p>
+
+<p align="center">
+  <img src="./assets/img3.png" alt="Image 1" width="45%">
+  <img src="./assets/img4.png" alt="Image 2" width="45%">
+</p>
+
 
 ### How to Build and Run
 
