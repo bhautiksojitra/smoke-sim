@@ -1,19 +1,34 @@
+## Smoke Simulation
 
+Real-time simulation using Navier-Stokes equation implemented in OpenGL (C++)
 
-# How to Build and Run
+### Visuals
 
-On all platforms: the code must be executed from the `src` directory. All files opened by your program will opened from that directory. Do **not** hard-code absolute paths. Use paths relative to `src`. Place all shaders and assets in `src`, or in subdirectories.
+* Output GIF
+![GIF](./assets/output.gif)
 
-You can edit GLSL files in any text editor, but major source code editors like [Visual Studio Code](https://code.visualstudio.com) have GLSL modes available, with context-sensitive editing.
+* Images
+![Image 1](./assets/img1.png)
+![Image 2](./assets/img2.png)
+![Image 3](./assets/img3.png)
+![Image 4](./assets/img4.png)
 
-## Windows (Visual Studio)
+### How to Build and Run
 
-Open the solution `opengl.sln` in [Visual Studio](https://visualstudio.microsoft.com). It has been tested using the free Community Edition. Build and run.
+Step #1: Clone this repo  
 
-If you get errors about missing build tools, you may be running a different version of Visual Studio. Right-click on *Solution 'opengl'* and select `Retarget solution`. This should point to the correct build tools.
+Step #2: Open the solution `opengl.sln` in [Visual Studio](https://visualstudio.microsoft.com).
 
-If you get errors about a missing Windows SDK, you will need to point to the version installed on your system. With the solution open, right-click on the project `opengl` (underneath *Solution 'opengl'*) in the Solution Explorer, and select `Properties`. In Configuration Properties / General, look for `Windows SDK Version` and use the drop-down to pick a version installed on your system.
+Step #3: Click `Play` button on the menu bar  
 
-To run a different example or your own code, expand the `Source Files` in the Solution Explorer, and delete `example0.cpp`. Using Windows Explorer or the command line, copy/move the desired CPP file to the `src` folder in the project. Add **that copy** to the project. Make sure you also copy all shaders and other assets to the `src` folder. Build and run.
+### Features
 
-Shader files don't need to be added to the project. You can edit them in Visual Studio, but it has no GLSL mode; an external editor may be better.
+* Clicking anywhere on the screen will start the simulation
+* Press `r` to reset the screen
+* Press `n` to change location of the object
+
+### Technical Report
+
+### References
+
+* `main.cpp`, `common.h`, `Makefile`, `Makefile.linux` are provided in the Computer Graphics 2 course in the University of Manitoba.
