@@ -1,3 +1,12 @@
+/*
+    Name: Bhautik Sojitra (7900140)
+    Course: COMP 4490
+    Project: Smoke Simulation using Navier Stokes Equation in OpenGL
+
+    Based on the idea from  https://core.ac.uk/download/pdf/52926036.pdf &
+    https://mikeash.com/pyblog/fluid-simulation-for-dummies.html
+*/
+
 #include "common.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -6,9 +15,6 @@
 #include <string>
 #include <random>
 
-
-#define STB_IMAGE_IMPLEMENTATION 
-#include "stb_image.h"
 using namespace std;
 
 const char* WINDOW_TITLE = "Smoke Simulation";
@@ -19,21 +25,15 @@ typedef glm::vec4  point4;
 typedef glm::vec3 colour3;
 
 GLuint program, vPosition, texture, texPosition, vao[1], indexBuff[1];
-GLuint velocityTexture, densityTexture;
+GLuint densityTexture;
 
 std::random_device rd;
-std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
-std::uniform_real_distribution<> dis(150.0, 250.0); // Range [0.0, 1.0)
-
-// Generate a random floating-point value
-double randomValue = dis(gen);
-
-float timeStamp = 0.0;
+std::mt19937 gen(rd());
+std::uniform_real_distribution<> dis(150.0, 250.0);
 
 const int NumQuadPoints = 4;
 const float QuadSize = 2.0;
 const float EdgeCoord = QuadSize / 2.0;
-
 const int DIMENSION = 100;
 const int NUMVALUES = DIMENSION * DIMENSION;
 
@@ -44,22 +44,21 @@ float constant_random_color3 = float(rand() % 10) / 100.0;
 
 bool doSimulate = false;
 
-
-float densityTexValues[NUMVALUES];
+float density[NUMVALUES];
 float density0[NUMVALUES];
 glm::vec2 velocity0[NUMVALUES];
 glm::vec2 velocity[NUMVALUES];
 glm::vec3 color_arr[NUMVALUES];
 
 float diffusion = 0.0f;
-float viscocity = 0.0000001;
+float viscocity = 0.00001;
 float dt = 0.2;
 
 int object_center_x = 70;
 int object_center_y = 70;
 int object_size = 10;
-
 int origin_x, origin_y;
+
 point4 cubeVertexPoints[NumQuadPoints] =
 {
     point4(-EdgeCoord, EdgeCoord, 0.0, 1.0),
@@ -78,24 +77,6 @@ glm::vec2 cubeTexPoints[NumQuadPoints] =
     glm::vec2(1.0, 1.0)
 };
 
-int IX(int x, int y)
-{
-    return (x * DIMENSION) + y;
-}
-
-void fill_object(int centerX, int centerY, int size)
-{
-    int half_cube_size =  size / 2;
-
-    for (int i = centerX - half_cube_size; i < centerX + half_cube_size; i++)
-    {
-        for (int j = centerY - half_cube_size; j < centerY + half_cube_size; j++)
-        {
-            color_arr[IX(i, j)] = glm::vec3(1.0, 0.0, 0.0);
-        }
-    }
-}
-
 // OpenGL initialization
 void
 init()
@@ -110,7 +91,6 @@ init()
     program = InitShader("v.glsl", "f.glsl");
     vPosition = glGetAttribLocation(program, "vPosition");
     texPosition = glGetAttribLocation(program, "texPosition"); 
-    velocityTexture = glGetUniformLocation(program, "velocityTexture");
     densityTexture = glGetUniformLocation(program, "densityTexture");
 
     glUseProgram(program);
@@ -139,24 +119,28 @@ init()
     glClearColor(0.5, 0.3, 0.2, 1.0);
 }
 
-
-void set_bnd(int b, float* x) {
-    for (int j = 1; j < DIMENSION - 1; j++) {
-        x[IX(j, 0)] = b == 2 ? -x[IX(j, 1)] : x[IX(j, 1)];
-        x[IX(j, DIMENSION - 1)] = b == 2 ? -x[IX(j, DIMENSION - 2)] : x[IX(j, DIMENSION - 2)];
-    }
-    for (int i = 1; i < DIMENSION - 1; i++) {
-        x[IX(0, i)] = b == 1 ? -x[IX(1, i)] : x[IX(1, i)];
-        x[IX(DIMENSION - 1, i)] = b == 1 ? -x[IX(DIMENSION - 2, i)] : x[IX(DIMENSION - 2, i)];
-    }
-
-    x[IX(0, 0)] = 0.5 * (x[IX(1, 0)] + x[IX(0, 1)]);
-    x[IX(0, DIMENSION - 1)] = 0.5 * (x[IX(1, DIMENSION - 1)] + x[IX(0, DIMENSION - 2)]);
-    x[IX(DIMENSION - 1, 0)] = 0.5 * (x[IX(DIMENSION - 2, 0)] + x[IX(DIMENSION - 1, 1)]);
-    x[IX(DIMENSION - 1, DIMENSION - 1)] = 0.5 * (x[IX(DIMENSION - 2, DIMENSION - 1)] + x[IX(DIMENSION - 1, DIMENSION - 2)]);
+// converts the 2D array index to 1D array index
+int IX(int x, int y)
+{
+    return (x * DIMENSION) + y;
 }
 
-void set_boundaries_for_velocity(glm::vec2 *velocity)
+// draw the obstacle 
+void fill_object(int centerX, int centerY, int size)
+{
+    int half_cube_size = size / 2;
+
+    for (int i = centerX - half_cube_size; i < centerX + half_cube_size; i++)
+    {
+        for (int j = centerY - half_cube_size; j < centerY + half_cube_size; j++)
+        {
+            color_arr[IX(i, j)] = glm::vec3(1.0, 0.0, 0.0);
+        }
+    }
+}
+
+// limits the velocity within the boundaries
+void boundary_check_velocity(glm::vec2 *velocity)
 {
     for (int i = 1; i < DIMENSION - 1; i++) {
         velocity[IX(i, 0)].y = -velocity[IX(i, 1)].y;
@@ -174,11 +158,9 @@ void set_boundaries_for_velocity(glm::vec2 *velocity)
     velocity[IX(0, DIMENSION - 1)] = 0.5f * (velocity[IX(1, DIMENSION - 1)] + velocity[IX(0, DIMENSION - 2)]);
     velocity[IX(DIMENSION - 1, 0)] = 0.5f * (velocity[IX(DIMENSION - 2, 0)] + velocity[IX(DIMENSION - 1, 1)]);
     velocity[IX(DIMENSION - 1, DIMENSION - 1)] = 0.5f * (velocity[IX(DIMENSION - 2, DIMENSION - 1)] + velocity[IX(DIMENSION - 1, DIMENSION - 2)]);
-
-    
-
 }
 
+// set boundaries for obstacle
 void set_boundaries_for_object(glm::vec2* velocity)
 {
     int leftX = object_center_x - (object_size / 2);
@@ -210,73 +192,58 @@ void set_boundaries_for_object(glm::vec2* velocity)
 
         }
     }
-
     velocity[IX(leftX, downY)] = (velocity[IX(leftX + 1, downY)] + velocity[IX(leftX, downY + 1)]) * 0.5f;
     velocity[IX(leftX, upY)] = 0.5f * (velocity[IX(leftX + 1, upY)] + velocity[IX(leftX, upY - 1)]);
     velocity[IX(rightX, downY)] = 0.5f * (velocity[IX(rightX - 1, downY)] + velocity[IX(rightX, downY + 1)]);
     velocity[IX(rightX, upY)] = 0.5f * (velocity[IX(rightX - 1, upY)] + velocity[IX(rightX, upY - 1)]);
 }
 
-void guassian_seidel_density_solver(int b, float* x, float* x0, float a, float c) {
-    float  cRecip = 1.0 / c;
-    for (int t = 0; t < 16; t++) {
+
+void diffuse_velocity() {
+    float coEfficient = dt * viscocity * 100;
+    float inverse_coefficient = 1.0 / (coEfficient + 1);
+
+    // guassian seidel solver
+    for (int t = 0; t < 15; t++) {
         for (int i = 1; i < DIMENSION - 1; i++) {
             for (int j = 1; j < DIMENSION - 1; j++) {
 
-                x[IX(i, j)] =
-                    (x0[IX(i, j)] +
-                        a *
-                        (x[IX(i + 1, j)] +
-                            x[IX(i - 1, j)] +
-                            x[IX(i, j + 1)] +
-                            x[IX(i, j - 1)])) *
-                    cRecip;
-            }
-        }
-    }
-}
-
-
-void guassian_seidel_velocity_solver(float a, float c) {
-    float  cRecip = 1.0 / c;
-    for (int t = 0; t < 16; t++) {
-        for (int i = 1; i < DIMENSION - 1; i++) {
-            for (int j = 1; j < DIMENSION - 1; j++) {
-
-                float xValue =
-                    (velocity[IX(i, j)].x +
-                        a *
+                float xValue = (velocity[IX(i, j)].x + coEfficient *
                         (velocity0[IX(i + 1, j)].x +
                             velocity0[IX(i - 1, j)].x +
                             velocity0[IX(i, j + 1)].x +
                             velocity0[IX(i, j - 1)])).x *
-                    cRecip;
+                    inverse_coefficient;
 
-                float yValue =
-                    (velocity[IX(i, j)].y +
-                        a *
+                float yValue = (velocity[IX(i, j)].y + coEfficient *
                         (velocity0[IX(i + 1, j)].y +
                             velocity0[IX(i - 1, j)].y +
                             velocity0[IX(i, j + 1)].y +
                             velocity0[IX(i, j - 1)])).y *
-                    cRecip;
+                    inverse_coefficient;
 
-                velocity0[IX(i, j)] = glm::vec2(xValue, yValue);                
+                velocity0[IX(i, j)] = glm::vec2(xValue, yValue);
             }
         }
-        set_boundaries_for_velocity(velocity);
-        set_boundaries_for_object(velocity);
+
+        boundary_check_velocity(velocity); // boundry hit check 
+        set_boundaries_for_object(velocity); // obstacle hit check
     }
 }
 
-void diffuse_velocity(float diff, float dt) {
-    float a = dt * diff * 100;
-    guassian_seidel_velocity_solver(a, 1 + 6 * a);
-}
+void diffuse_density() {
+    float co_eff = dt * diffusion * 100;
+    float  inverse_co_eff = 1.0 / (1 + co_eff);
 
-void diffuse(int b, float* x, float* x0, float diff, float dt) {
-    float a = dt * diff * 100;
-    guassian_seidel_density_solver(b, x, x0, a, 1 + 6 * a);
+    //gaussian seidel iterative solver
+    for (int t = 0; t < 16; t++) {
+        for (int i = 1; i < DIMENSION - 1; i++) {
+            for (int j = 1; j < DIMENSION - 1; j++) {
+
+                density0[IX(i, j)] = (density[IX(i, j)] + co_eff * (density0[IX(i + 1, j)] + density0[IX(i - 1, j)] + density0[IX(i, j + 1)] + density0[IX(i, j - 1)])) * inverse_co_eff;
+            }
+        }
+    }
 }
 
 void project_velocity(glm::vec2 * velocity_arr1, glm::vec2* velocity_arr2) {
@@ -299,9 +266,8 @@ void project_velocity(glm::vec2 * velocity_arr1, glm::vec2* velocity_arr2) {
         }
     }
 
-    set_boundaries_for_velocity(velocity_arr2);
+    boundary_check_velocity(velocity_arr2);
     set_boundaries_for_object(velocity_arr2);
-    
 
     for (int i = 1; i < DIMENSION - 1; i++) {
         for (int j = 1; j < DIMENSION - 1; j++) {
@@ -309,112 +275,87 @@ void project_velocity(glm::vec2 * velocity_arr1, glm::vec2* velocity_arr2) {
             velocity_arr1[IX(i, j)].y -= 0.5 * (velocity_arr2[IX(i, j + 1)].x - velocity_arr2[IX(i, j - 1)].x) * DIMENSION;
         }
     }
-
-    set_boundaries_for_velocity(velocity_arr1);
+    boundary_check_velocity(velocity_arr1);
     set_boundaries_for_object(velocity_arr1);
 }
 
 
-void advect_velocity(bool isY, glm::vec2 *vel, glm::vec2 * velocity_arr, float dt) {
-    float i0, i1, j0, j1;
+void advect_velocity(bool isY, glm::vec2 *vel, glm::vec2 * velocity_arr) {
 
-    float dtx = dt * (FRAME_RATE_MS);
-    float dty = dt * (FRAME_RATE_MS);
+    float total_time_per_frame = dt * (FRAME_RATE_MS);
+    for (int i = 1; i < DIMENSION - 1; i++) {
+        for (int j = 1; j < DIMENSION - 1; j++) {
 
-    float s0, s1, t0, t1;
-    float x, y;
+            // tracing back the position based on the velociy
+            float x = i - (total_time_per_frame * velocity_arr[IX(i, j)].x);
+            float y = j - (total_time_per_frame * velocity_arr[IX(i, j)].y);
 
-    int i, j, k;
+            x = glm::max(0.0f, glm::min(x, float(DIMENSION - 1)));
+            y = glm::max(0.0f, glm::min(y, float(DIMENSION - 1)));
+            
+            // get neighbouring positions;
+            int i0 = glm::floor(x);
+            int i1 = i0 + 1.0;
+            int j0 = glm::floor(y);
+            int j1 = j0 + 1.0;
 
-    for (i = 1; i < DIMENSION - 1; i++) {
-        for (j = 1; j < DIMENSION - 1; j++) {
-
-            x = i - (dtx * velocity_arr[IX(i, j)].x);
-            y = j - (dtx * velocity_arr[IX(i, j)].y);
-
-            if (x < 0.5) x = 0.5;
-            if (x > (DIMENSION - 2) + 0.5) x = (DIMENSION - 2) + 0.5;
-            i0 = glm::floor(x);
-            i1 = i0 + 1.0;
-            if (y < 0.5) y = 0.5;
-            if (y > (DIMENSION - 2) + 0.5) y = (DIMENSION - 2) +0.5;
-            j0 = glm::floor(y);
-            j1 = j0 + 1.0;
-
-            s1 = x - i0;
-            s0 = 1.0 - s1;
-            t1 = y - j0;
-            t0 = 1.0 - t1;
-
-            int i0i = i0;
-            int i1i = i1;
-            int j0i = j0;
-            int j1i = j1;
+            // calculate the weight of the positions for interpolation
+            float s1 = x - i0;
+            float s0 = 1.0 - s1;
+            float t1 = y - j0;
+            float t0 = 1.0 - t1;
 
             if (isY == false)
             {
                 vel[IX(i, j)].x =
-                    s0 * (t0 * velocity_arr[IX(i0i, j0i)].x + t1 * velocity_arr[IX(i0i, j1i)].x) +
-                    s1 * (t0 * velocity_arr[IX(i1i, j0i)].x + t1 * velocity_arr[IX(i1i, j1i)].x);
+                    s0 * (t0 * velocity_arr[IX(i0, j0)].x + t1 * velocity_arr[IX(i0, j1)].x) +
+                    s1 * (t0 * velocity_arr[IX(i1, j0)].x + t1 * velocity_arr[IX(i1, j1)].x);
             }
             else
             {
                 vel[IX(i, j)].y =
-                    s0 * (t0 * velocity_arr[IX(i0i, j0i)].y + t1 * velocity_arr[IX(i0i, j1i)].y) +
-                    s1 * (t0 * velocity_arr[IX(i1i, j0i)].y + t1 * velocity_arr[IX(i1i, j1i)].y);
+                    s0 * (t0 * velocity_arr[IX(i0, j0)].y + t1 * velocity_arr[IX(i0, j1)].y) +
+                    s1 * (t0 * velocity_arr[IX(i1, j0)].y + t1 * velocity_arr[IX(i1, j1)].y);
             }
             
         }
     }
-    set_boundaries_for_velocity(vel);
+    boundary_check_velocity(vel);
     set_boundaries_for_object(vel);
 }
 
-void advect(float *d, float *d0, glm::vec2* velocity_arr, float dt) {
-    float i0, i1, j0, j1;
+void advect_density(float *d, float *d0, glm::vec2* velocity_arr) {
+    
+    float total_time_per_frame = dt * (FRAME_RATE_MS);
 
-    float dtx = dt * (FRAME_RATE_MS);
-    float dty = dt * (FRAME_RATE_MS);
+    for (int i = 1; i < DIMENSION - 1; i++) {
+        for (int j = 1; j < DIMENSION - 1; j++) {
 
-    float s0, s1, t0, t1;
-    float x, y;
+            // tracing back the position based on the velociy
+            float x = i - (total_time_per_frame * velocity_arr[IX(i, j)].x);
+            float y = j - (total_time_per_frame * velocity_arr[IX(i, j)].y);
 
-    int i, j, k;
+            x = glm::max(0.0f, glm::min(x, float(DIMENSION - 2)));
+            y = glm::max(0.0f, glm::min(y, float(DIMENSION - 2)));
 
-    for (i = 1; i < DIMENSION - 1; i++) {
-        for (j = 1; j < DIMENSION - 1; j++) {
+            // get neighbouring positions;
+            int i0 = glm::floor(x);
+            int i1 = i0 + 1.0;
+            int j0 = glm::floor(y);
+            int j1 = j0 + 1.0;
 
-            x = i - (dtx * velocity_arr[IX(i, j)].x);
-            y = j - (dtx * velocity_arr[IX(i, j)].y);
+            // calculate the weight of the positions for interpolation
+            float s1 = x - i0;
+            float s0 = 1.0 - s1;
+            float t1 = y - j0;
+            float t0 = 1.0 - t1;
 
-            if (x < 0.5) x = 0.5;
-            if (x > (DIMENSION - 2) + 0.5) x = (DIMENSION - 2) + 0.5;
-            i0 = glm::floor(x);
-            i1 = i0 + 1.0;
-            if (y < 0.5) y = 0.5;
-            if (y > (DIMENSION - 2) + 0.5) y = (DIMENSION - 2) + 0.5;
-            j0 = glm::floor(y);
-            j1 = j0 + 1.0;
-
-            s1 = x - i0;
-            s0 = 1.0 - s1;
-            t1 = y - j0;
-            t0 = 1.0 - t1;
-
-            int i0i = i0;
-            int i1i = i1;
-            int j0i = j0;
-            int j1i = j1;
-
-            
+            // interpolate based on neighbouring cell's previous values
             d[IX(i, j)] =
-                    s0 * (t0 * d0[IX(i0i, j0i)] + t1 * d0[IX(i0i, j1i)]) +
-                    s1 * (t0 * d0[IX(i1i, j0i)] + t1 * d0[IX(i1i, j1i)]);
-            
-
+                    s0 * (t0 * d0[IX(i0, j0)] + t1 * d0[IX(i0, j1)]) +
+                    s1 * (t0 * d0[IX(i1, j0)] + t1 * d0[IX(i1, j1)]);
         }
     }
-    set_bnd(0, d);
 }
 
 
@@ -425,63 +366,55 @@ display(void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    int center = DIMENSION / 2;
-
     if (doSimulate)
     {
+        // apply external force
         for (int i = 0; i < 1; i++)
         {
             for (int j = 0; j < 1; j++)
             {
                 float x = dis(gen);
-                float temp = densityTexValues[IX(origin_x + i, origin_y + j)] + x;
+                float temp = density[IX(origin_x + i, origin_y + j)] + x;
 
                 float real_value = glm::clamp(temp, 0.0f, 1.7f);
-                densityTexValues[IX(origin_x + i, origin_y + j)] += real_value;
+                density[IX(origin_x + i, origin_y + j)] += real_value;
             }
         }
+
         for (int i = 0; i < 1; i++)
         {
             velocity[IX(origin_x, origin_y)] += glm::vec2(rand() % 3 , rand() % 3);
         }
-
-
-       
     }
     
-    diffuse_velocity(viscocity, dt);
 
-
-
+    // set of operations on the velocity array
+    diffuse_velocity();
     project_velocity(velocity0, velocity);
-
-
-    advect_velocity(true, velocity, velocity0, dt);
-    advect_velocity(false, velocity, velocity0, dt);
-
+    advect_velocity(true, velocity, velocity0);
+    advect_velocity(false, velocity, velocity0);
     project_velocity(velocity, velocity0);
 
 
+    // set of operations on the density array
+    diffuse_density();
+    advect_density(density, density0, velocity);
 
-    diffuse(0, density0, densityTexValues, diffusion, dt);
 
-    advect(densityTexValues, density0, velocity, dt);
-
-
+    // determine the color for the smoke particle using the density array
     for (int i = 0; i < NUMVALUES; i++)
     {
-        float color_val = densityTexValues[i];
+        float color_val = density[i];
         color_arr[i] = glm::vec3(color_val - constant_random_color1, color_val - constant_random_color2, color_val - constant_random_color3);
     }
 
+    //  draw the obstactle 
     fill_object(object_center_x, object_center_y, object_size);
     
     
-    
+    // transfer the color array to the texture buffer for rendering
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, DIMENSION, DIMENSION, 0, GL_RGB, GL_FLOAT, color_arr);
     
-    
-
     glDrawElements(GL_TRIANGLES, NumQuadPoints + 2, GL_UNSIGNED_INT, 0);
     glutSwapBuffers();
 }
@@ -489,6 +422,7 @@ display(void)
 
 //----------------------------------------------------------------------------
 
+// change the dimensions and the size of the obstacle
 void update_obstacle()
 {
     object_size = (rand() % 20) + 8;
@@ -496,6 +430,7 @@ void update_obstacle()
     object_center_y = (rand() % (DIMENSION - (object_size / 2))) + ((object_size / 2));
 }
 
+// reset  the simulation to the blank screen
 void reset_sim()
 {
     for (int i = 0; i < DIMENSION - 1; i++)
@@ -505,13 +440,18 @@ void reset_sim()
             velocity[IX(i, j)] = glm::vec2(0, 0);
             velocity0[IX(i, j)] = glm::vec2(0, 0);
             density0[IX(i, j)] = 0.0f;
-            densityTexValues[IX(i, j)] = 0.0f;
+            density[IX(i, j)] = 0.0f;
 
         }
     }
     doSimulate = false;
 }
 
+void
+update(void)
+{
+    
+}
 
 
 void
@@ -550,15 +490,6 @@ mouse(int button, int state, int x, int y)
         case GLUT_RIGHT_BUTTON:    break;
         }
     }
-}
-
-//----------------------------------------------------------------------------
-
-
-void
-update(void)
-{
-    timeStamp += 0.01;
 }
 
 
