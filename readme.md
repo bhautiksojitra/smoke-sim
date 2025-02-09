@@ -33,6 +33,8 @@ Step #3: Click `Play` button on the menu bar
 
 ### Technical Report
 
+* https://bhautiksojitra.github.io/posts/smoke-simulation/
+
 ### References
 
 * `main.cpp`, `common.h`, `Makefile`, `Makefile.linux` are provided in the Computer Graphics 2 course in the University of Manitoba.
